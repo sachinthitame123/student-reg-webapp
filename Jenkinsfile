@@ -2,7 +2,7 @@ properties([pipelineTriggers([githubPush()])])
 
 node{
     def mavenHome = tool name:'Maven-3.9.11' ,type: 'maven'
-    def tomcatIp='51.20.185.220'
+    def tomcatIp='13.60.65.217'
     def tomcatUser='ec2-user'
     try{
         stage('Checkout') {
@@ -22,8 +22,8 @@ node{
         }
         stage("Sonar")
         {
-            withCredentials([string(credentialsId: 'sonarToken', variable: 'sonarTokenvariable')]) {
-                sh "${mavenHome}/bin/mvn verify sonar:sonar -Dsonar.token=${sonarTokenvariable}"
+            withCredentials([string(credentialsId: 'sonarToken', variable: 'sonarToken')]) {
+                sh "${mavenHome}/bin/mvn verify sonar:sonar -Dsonar.token=${sonarToken}"
             }
         }
          stage("Upload war file to Nexus")
@@ -74,7 +74,8 @@ node{
             subject: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
             body: emailBody,
             mimeType: 'text/html',
-            to: 'mayurthitame@gmail.com'
+            to: 'sachinthitame7350@gmail.com'
+            
         )
     }
 }
