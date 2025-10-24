@@ -1,99 +1,80 @@
-pipeline {
-    
-    agent any
-    
-    triggers {
-       githubPush()
-     }
+properties([pipelineTriggers([githubPush()])])
 
-    options {
-      buildDiscarder logRotator(numToKeepStr: '5')
-      timeout(time: 10, unit: 'MINUTES')
-      disableConcurrentBuilds()
-    }
-    
-    environment {
-        SONARQUBE_URL = "http://13.57.206.25:9000"
-        SONAR_QUBE_TOKEN = credentials('SonarToken')
-        TOMCAT_SERVER_IP = "172.31.21.97"
-    }
-    
-    tools {
-        maven 'Maven-3.9.10'
-    }
+node{
+    def mavenHome = tool name:'Maven-3.9.11' ,type: 'maven'
+    def tomcatIp='51.20.185.220'
+    def tomcatUser='ec2-user'
+    try{
+        stage('Checkout') {
+            checkout([$class: 'GitSCM',  
+                branches: [[name: '*/main']],
+                extensions: [
+                    [$class: 'WipeWorkspace'],
+                    [$class: 'CloneOption', noTags: false, shallow: false, depth: 0, timeout: 10]
+                ], 
+                userRemoteConfigs: [[url: 'https://github.com/sachinthitame123/student-reg-webapp.git']]
+            ])
+        }
 
-    stages {
-
-
-       stage("Maven Clean Package"){
-           steps {
-               sh "mvn clean package"
-           }
-       }
-       
-      stage("Sonar Scan"){
-           steps {
-            sh "mvn sonar:sonar -Dsonar.url=${SONARQUBE_URL} -Dsonar.token=${SONAR_QUBE_TOKEN}"
-          }
-      }
-      
-      stage("Upload War To Nexus"){
-          steps {
-              sh "mvn clean deploy"
-          }
-      }
-      
-       stage("Deployt To Dev Server") {
-        when {
-            expression {
-                return env.BRANCH_NAME == 'development'
+        stage("Maven build")
+        {
+            sh "${mavenHome}/bin/mvn clean package"
+        }
+        stage("Sonar")
+        {
+            withCredentials([string(credentialsId: 'sonarToken', variable: 'sonarTokenvariable')]) {
+                sh "${mavenHome}/bin/mvn verify sonar:sonar -Dsonar.token=${sonarTokenvariable}"
             }
         }
-        steps{
-    
-            sshagent(['Tomcat_Server']) {
-                sh """
-                     ssh -o  StrictHostKeyChecking=no ec2-user@${TOMCAT_SERVER_IP} sudo systemctl stop tomcat
-                     echo Stoping the Tomcat Process
-                     sleep 30
-                     scp -o  StrictHostKeyChecking=no target/student-reg-webapp.war ec2-user@${TOMCAT_SERVER_IP}:/opt/tomcat/webapps/student-reg-webapp.war
-                     echo Copying the War file to Tomcat Server
-                     ssh -o  StrictHostKeyChecking=no ec2-user@${TOMCAT_SERVER_IP} sudo systemctl start tomcat
-                     echo Strating the Tomcat process
-                   """
+         stage("Upload war file to Nexus")
+        {
+             sh "${mavenHome}/bin/mvn package deploy"
+        }
+        stage("Upload war file to Tomcat")
+        {
+            sshagent(['TomcatServer_SSH_Credentials']) {
+              sh "ssh -o StrictHostKeyChecking=no ${tomcatUser}@${tomcatIp} sudo systemctl stop tomcat"
+              sh "sleep 20"
+              sh "ssh -o StrictHostKeyChecking=no ${tomcatUser}@${tomcatIp} rm /opt/tomcat/webapps/student-reg-webapp.war"
+              sh "scp -o StrictHostKeyChecking=no target/student-reg-webapp.war ${tomcatUser}@${tomcatIp}:/opt/tomcat/webapps/student-reg-webapp.war"
+              sh "ssh -o StrictHostKeyChecking=no ${tomcatUser}@${tomcatIp} sudo systemctl start tomcat"
             }
         }
-      }
-      
-       
-   }
-   
-   post {
-        always {
-            cleanWs()
-        }
-        success {
-        slackSend (channel: 'lic-appteam', color: "good", message: "Build - SUCCESS : ${env.JOB_NAME} #${env.BUILD_NUMBER} - URL: ${env.BUILD_URL}")
-          sendEmail(
-           "${env.JOB_NAME} - ${env.BUILD_NUMBER} - Build SUCCESS",
-           "Build SUCCESS. Please check the console output at ${env.BUILD_URL}",
-           'balajireddy.urs@gmail.com' )
-        }
-        failure {
-         slackSend (channel: 'lic-appteam', color: "danger", message: "Build - FAILED : ${env.JOB_NAME} #${env.BUILD_NUMBER} - URL: ${env.BUILD_URL}")    
-         sendEmail(
-           "${env.JOB_NAME} - ${env.BUILD_NUMBER} - Build FAILED",
-           "Build FAILED. Please check the console output at ${env.BUILD_URL}",
-           'balajireddy.urs@gmail.com' )
-        }
+    }catch(err)
+    {
+        currentBuild.result='FAILURE'
+        throw err
     }
-}
+    finally {
+        // ---- Notification Section ----
+        
+        def buildStatus = currentBuild.result ?: 'SUCCESS'
 
-def sendEmail(String subject, String body, String recipient) {
-    emailext(
-        subject: subject,
-        body: body,
-        to: recipient,
-        mimeType: 'text/html'
-    )
+        slackSend channel: 'student-webapp', message: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+        def color = (buildStatus == 'SUCCESS') ? 'green' : 'red'
+        def emoji = (buildStatus == 'SUCCESS') ? '✅' : '❌'
+        def message = (buildStatus == 'SUCCESS') ?
+            "${emoji} Build *SUCCESSFUL* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}" :
+            "${emoji} Build *FAILED* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+
+        def emailBody = """
+            <html>
+                <body style="font-family:Arial, sans-serif; color:#333;">
+                    <h2 style="color:${color};">${emoji} ${buildStatus}</h2>
+                    <p><b>Project:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                    <p><b>Build URL:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                    <hr>
+                    <p>${message}</p>
+                </body>
+            </html>
+        """
+
+        emailext(
+            subject: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: emailBody,
+            mimeType: 'text/html',
+            to: 'mayurthitame@gmail.com'
+        )
+    }
 }
