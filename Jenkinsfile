@@ -32,7 +32,7 @@ node{
         }
         stage("Upload war file to Tomcat")
         {
-            sshagent(['TomcatSSHCredentials']) {
+            sshagent(['TomcatCredentials1']) {
               sh "ssh -o StrictHostKeyChecking=no ${tomcatUser}@${tomcatIp} sudo systemctl stop tomcat"
               sh "sleep 20"
               sh "ssh -o StrictHostKeyChecking=no ${tomcatUser}@${tomcatIp} rm /opt/tomcat/webapps/student-reg-webapp.war"
