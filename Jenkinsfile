@@ -32,7 +32,7 @@ node{
         }
         stage("Upload war file to Tomcat")
         {
-            sshagent(['TomcatServer_SSH_Credentials']) {
+            sshagent(['TomcatCredentials']) {
               sh "ssh -o StrictHostKeyChecking=no ${tomcatUser}@${tomcatIp} sudo systemctl stop tomcat"
               sh "sleep 20"
               sh "ssh -o StrictHostKeyChecking=no ${tomcatUser}@${tomcatIp} rm /opt/tomcat/webapps/student-reg-webapp.war"
@@ -50,12 +50,12 @@ node{
         
         def buildStatus = currentBuild.result ?: 'SUCCESS'
 
-        slackSend channel: 'student-webapp', message: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-        def color = (buildStatus == 'SUCCESS') ? 'green' : 'red'
-        def emoji = (buildStatus == 'SUCCESS') ? '✅' : '❌'
-        def message = (buildStatus == 'SUCCESS') ?
-            "${emoji} Build *SUCCESSFUL* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}" :
-            "${emoji} Build *FAILED* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+        // slackSend channel: 'student-webapp', message: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+        // def color = (buildStatus == 'SUCCESS') ? 'green' : 'red'
+        // def emoji = (buildStatus == 'SUCCESS') ? '✅' : '❌'
+        // def message = (buildStatus == 'SUCCESS') ?
+        //     "${emoji} Build *SUCCESSFUL* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}" :
+        //     "${emoji} Build *FAILED* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
 
         def emailBody = """
             <html>
