@@ -46,36 +46,32 @@ node{
         throw err
     }
     finally {
-        // ---- Notification Section ----
-        
-        def buildStatus = currentBuild.result ?: 'SUCCESS'
+    def buildStatus = currentBuild.result ?: 'SUCCESS'
 
-        // slackSend channel: 'student-webapp', message: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-        // def color = (buildStatus == 'SUCCESS') ? 'green' : 'red'
-        // def emoji = (buildStatus == 'SUCCESS') ? '✅' : '❌'
-        // def message = (buildStatus == 'SUCCESS') ?
-        //     "${emoji} Build *SUCCESSFUL* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}" :
-        //     "${emoji} Build *FAILED* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+    // Define color, emoji, message
+    def color = (buildStatus == 'SUCCESS') ? 'green' : 'red'
+    def emoji = (buildStatus == 'SUCCESS') ? '✅' : '❌'
+    def message = (buildStatus == 'SUCCESS') ?
+        "${emoji} Build *SUCCESSFUL* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}" :
+        "${emoji} Build *FAILED* for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
 
-        def emailBody = """
-            <html>
-                <body style="font-family:Arial, sans-serif; color:#333;">
-                    <h2 style="color:${color};">${emoji} ${buildStatus}</h2>
-                    <p><b>Project:</b> ${env.JOB_NAME}</p>
-                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                    <p><b>Build URL:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                    <hr>
-                    <p>${message}</p>
-                </body>
-            </html>
-        """
+    def emailBody = """
+        <html>
+            <body style="font-family:Arial, sans-serif; color:#333;">
+                <h2 style="color:${color};">${emoji} ${buildStatus}</h2>
+                <p><b>Project:</b> ${env.JOB_NAME}</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Build URL:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                <hr>
+                <p>${message}</p>
+            </body>
+        </html>
+    """
 
-        emailext(
-            subject: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: emailBody,
-            mimeType: 'text/html',
-            to: 'sachinthitame7350@gmail.com'
-            
-        )
-    }
+    emailext(
+        subject: "Jenkins Build: ${buildStatus} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        body: emailBody,
+        mimeType: 'text/html',
+        to: 'sachinthitame7350@gmail.com'
+    )
 }
