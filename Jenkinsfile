@@ -2,7 +2,7 @@ properties([pipelineTriggers([githubPush()])])
 
 node{
     def mavenHome = tool name:'Maven-3.9.11' ,type: 'maven'
-    def tomcatIp='13.60.65.217'
+    def tomcatIp='13.51.177.128'
     def tomcatUser='ec2-user'
     try{
         stage('Checkout') {
